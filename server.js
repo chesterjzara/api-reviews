@@ -46,5 +46,8 @@ let connectionString;
 const db = require('./db/index.js')
 
 
-const userController = require('./controllers/users_controller.js');
-app.use('/users', userController);
+const usersController = require('./controllers/users_controller.js');
+app.use('/users', usersController);
+
+const friendsController = require('./controllers/friends_controller.js')
+app.use('/friends', friendsController)
