@@ -15,7 +15,7 @@ router.post('/new', async (req, res) => {
     
     try {
         const { rows } = await db.query(`
-            INSERT INTO users (first_name, last_name, email, password)   
+            INSERT INTO users (first_name, last_name, email, password)
             VALUES ($1, $2, $3, $4)
             RETURNING user_id, first_name, last_name, email, password;`, 
             [first_name, last_name, email, password])
@@ -25,7 +25,7 @@ router.post('/new', async (req, res) => {
             expiresIn: 86400
         })
         
-        res.status(200).json( {user: createdUser, auth: true, token: token})
+        res.status(200).json( {user: createdUser, auth: true, token: token, user_id: createdUser.user_id})
 
     } catch (e) {
         // console.error(e)
