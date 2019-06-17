@@ -15,7 +15,7 @@ router.post('/new', async (req, res) => {
     
     try {
         const { rows } = await db.query(`
-            INSERT INTO users (first_name, last_name, email, password)   
+            INSERT INTO users (first_name, last_name, email, password)
             VALUES ($1, $2, $3, $4)
             RETURNING user_id, first_name, last_name, email, password;`, 
             [first_name, last_name, email, password])
@@ -25,7 +25,7 @@ router.post('/new', async (req, res) => {
             expiresIn: 86400
         })
         
-        res.status(200).json( {user: createdUser, auth: true, token: token})
+        res.status(200).json( {user: createdUser, auth: true, token: token, user_id: createdUser.user_id})
 
     } catch (e) {
         // console.error(e)
@@ -122,7 +122,22 @@ router.get('/', async (req, res) => {
 router.get('/:id', VerifyToken, async (req, res) => { 
     try {
         const { id } = req.params
-        const { rows } = await db.query('SELECT * FROM users WHERE user_id=$1',[id])
+        let current_user_id  = req.user_id
+        const { rows } = await db.query(`
+        SELECT
+            users.user_id,
+            users.first_name,
+            users.last_name,
+            friends.user_a as friend_id,
+            friends.status
+        FROM users 
+        LEFT OUTER JOIN 
+            (SELECT * FROM users_friends WHERE user_a = $2) as friends
+            on friends.user_b = users.user_id
+        WHERE
+            (users.user_id = $1);
+        `,[id, current_user_id])
+        console.log(rows[0])
         res.status(200).json(rows[0])
     } catch (e) {
         console.log(e.stack)

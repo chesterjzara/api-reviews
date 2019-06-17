@@ -176,13 +176,55 @@ router.post('/search', VerifyToken, async (req, res) => {
     }
 })
 
+router.post('/search/new', VerifyToken, async (req, res) => { 
+    let {searchTerm} = req.body
+    let current_user_id  = req.user_id
+    searchTerm = searchTerm.toLowerCase()
+    try {
+        console.log('searchTerm:', searchTerm, 'currID:',current_user_id)
+        let { rows } = await db.query(`
+            SELECT
+                users.user_id,
+                users.first_name,
+                users.last_name,
+                friends.user_a as friend_id,
+                friends.status
+            FROM users 
+            LEFT OUTER JOIN 
+                (SELECT * FROM users_friends WHERE user_a = $2) as friends
+                 on friends.user_b = users.user_id
+            WHERE
+                (users.first_name LIKE $1 OR users.last_name LIKE $1)
+                AND users.user_id != $2;
+        `, ['%'+searchTerm+'%', current_user_id])
+
+        res.status(200).json(rows);
+    } catch (e) {
+        console.log(e)
+        res.status(400).json({
+            status: 400,
+            message: 'An error occurred in search, try again.'
+        })
+    }
+})
+
 router.get('/', VerifyToken, async (req, res) => {
     console.log('Return all current friends for this user')
     let current_user_id = req.user_id
     const { rows } = await db.query(`
-        SELECT * FROM users_friends
-        WHERE user_a = $1 AND status LIKE $2;
-    `, [current_user_id, 'confirmed'])
+        SELECT
+            a.user_id as user_id,
+            b.user_id as friend_id,
+            b.first_name,
+            b.last_name,
+            friends.status
+        FROM users_friends as friends
+        LEFT JOIN users as a
+            ON friends.user_a = a.user_id
+        LEFT JOIN users as b
+            ON friends.user_b = b.user_id
+        WHERE user_a = $1;
+    `, [current_user_id])
 
     res.status(200).json( rows )
 })
