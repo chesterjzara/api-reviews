@@ -1,6 +1,17 @@
 const { Pool } = require('pg')
 
-connectionString = `postgresql://${process.env.PGUSER}:${process.env.PGPASSWORD}@${process.env.PGHOST}:${process.env.PGPORT}/${process.env.PGDATABASE}`
+let connectionString;
+try {
+    if(ENV['DATABASE_URL']) {
+        connectionString = ENV['DATABASE_URL']
+    } else {
+        connectionString = `postgresql://${process.env.PGUSER}:${process.env.PGPASSWORD}@${process.env.PGHOST}:${process.env.PGPORT}/${process.env.PGDATABASE}`
+    }
+} catch(e) {
+    connectionString = `postgresql://${process.env.PGUSER}:${process.env.PGPASSWORD}@${process.env.PGHOST}:${process.env.PGPORT}/${process.env.PGDATABASE}`
+}
+
+
 const pool = new Pool({
     connectionString : connectionString,
 })

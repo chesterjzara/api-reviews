@@ -25,20 +25,22 @@ router.post('/new', async (req, res) => {
             expiresIn: 86400
         })
         
-        res.status(200).json( {user: createdUser, token: token})
+        res.status(200).json( {user: createdUser, auth: true, token: token})
 
     } catch (e) {
         // console.error(e)
         if(e.code == "23505") {
             res.status(400).json({
                 status: 400,
+                auth: false,
                 message: 'Duplicate email entered, unable to create account.'
             })
         }
         else {
             res.status(400).json({
                 status: 400,
-                message: e.stack,
+                auth: false,
+                message: 'Unable to register user, try again.',
             })
         }
     }
@@ -51,13 +53,13 @@ router.post('/login', async (req, res) => {
         let user = rows[0]
         let passwordMatches = bcrypt.compareSync(req.body.password, user.password)
         if(!passwordMatches) {
-            return res.status(401).send({ auth: false, token: null});
+            return res.status(401).send({ auth: false, message: 'Incorrect password'});
         } else {
             let token = jwt.sign({ user_id: user.user_id}, process.env.HASHSECRET, {expiresIn: 86400});
-            res.status(200).json({ auth: true, token: token })
+            res.status(200).json({ auth: true, token: token, user_id: user.user_id })
         }
     } catch(err) {
-        return res.status(500).json({ auth: false, message: 'Error on the server.'})
+        return res.status(500).json({ auth: false, message: 'User not found.'})
     }
 })
 
@@ -74,7 +76,7 @@ router.get('/me', VerifyToken, async (req, res) => {
             return res.status(404).json("No user found")
         }
         
-        res.status(200).send(user);
+        res.status(200).send( { user: user, auth: true} );
 
     } catch (err) {
         return res.status(500).json({ auth: false, message: "There was an error finding the user."})

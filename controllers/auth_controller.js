@@ -2,6 +2,8 @@ require('dotenv').config()
 const jwt = require('jsonwebtoken')
 
 const verifyToken = async (req, res, next) => {
+    // console.log(req.headers)
+
     let token = req.headers['x-access-token']
     if(!token) {
         return res.status(401).json({ auth: false, message: 'No token provided.'});
