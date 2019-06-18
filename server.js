@@ -54,5 +54,5 @@ app.use('/users', usersController);
 const friendsController = require('./controllers/friends_controller.js')
 app.use('/friends', friendsController)
 
-// const placesController = require('./controllers/places_controller.js')
-// app.use('/places', placesController)
+const placesController = require('./controllers/places_controller.js')
+app.use('/places', placesController)
