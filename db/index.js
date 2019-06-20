@@ -18,6 +18,8 @@ const pool = new Pool({
 
 module.exports = {
     query: (text, params, callback) => {
+        // console.log('test connectionstring:', connectionString)
+        // console.log('test env database_url:', process.env.DATABASE_URL)
         return pool.query(text, params, callback)
     }
 }
