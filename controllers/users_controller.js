@@ -116,7 +116,8 @@ router.get('/', async (req, res) => {
         console.error(e)
         res.status(400).json({
             status: 400,
-            message: 'An error occurred, try again.'
+            message: 'An error occurred, try again. (/users)',
+            e: e
         })
     }
 })
