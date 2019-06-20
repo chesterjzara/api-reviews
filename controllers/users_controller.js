@@ -42,7 +42,7 @@ router.post('/new', async (req, res) => {
                 status: 400,
                 auth: false,
                 message: 'Unable to register user, try again.',
-                e : e
+                e : e,
             })
         }
     }
@@ -146,6 +146,11 @@ router.get('/:id', VerifyToken, async (req, res) => {
         res.status(200).json(rows[0])
     } catch (e) {
         console.log(e.stack)
+        res.status(400).json({
+            status: 400,
+            message: `An error occurred, unable to open this user's page`,
+            e: e
+        })
     }
 })
 
