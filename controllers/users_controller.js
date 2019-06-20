@@ -33,7 +33,8 @@ router.post('/new', async (req, res) => {
             res.status(400).json({
                 status: 400,
                 auth: false,
-                message: 'Duplicate email entered, unable to create account.'
+                message: 'Duplicate email entered, unable to create account.',
+                e : e
             })
         }
         else {
@@ -41,6 +42,7 @@ router.post('/new', async (req, res) => {
                 status: 400,
                 auth: false,
                 message: 'Unable to register user, try again.',
+                e : e
             })
         }
     }
