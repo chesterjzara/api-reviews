@@ -63,6 +63,8 @@ router.post('/login', async (req, res) => {
     }
 })
 
+// router.put('/login', async)
+
 router.get('/logout', (req, res) => {
     res.status(200).json({ auth: false, token: null });
 });

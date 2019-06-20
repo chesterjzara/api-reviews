@@ -8,11 +8,6 @@ let VerifyToken = require('./auth_controller.js');
 
 module.exports = router;
 
-// router.post('/new', VerifyToken, async (req, res) => { 
-//     let user_id = req.user_id
-
-// })
-
 function capitalizeFirstLetter(string) {
     return string.charAt(0).toUpperCase() + string.slice(1);
 }
@@ -74,7 +69,7 @@ router.post('/new', VerifyToken, async (req, res) => {
 
         res.status(200).json({
             place: placesResults.rows[0],
-            tag: placeTagResults
+            tag: placeTagResults.rows[0]
         })
     
     } catch(e) {
@@ -84,19 +79,197 @@ router.post('/new', VerifyToken, async (req, res) => {
             message: 'An error occurred, try again.'
         })
     }
+})
 
-    // If we have newTag = true
-        // Store the new tag in the 'tags' table, return the new id number
-    // Else ]
-        // Lookup the number for the tag
+router.put('/update/', VerifyToken, async (req, res) => { 
+    let current_user_id = req.user_id
+    const {entry_id, place_id, address, name, google_url, tag, new_tag, review_text, rating } = req.body
+
+   try {
+        // Get correct tag ID
+        let tag_id
+        let tagChanged = false
+        let tag_entry_id
+        if (new_tag === true) {
+            const tagResults = await db.query(`
+                INSERT INTO tags (tag_name)
+                VALUES ($1)
+                RETURNING tag_id; 
+            `, [tag])
+            tag_id = tagResults.rows[0].tag_id
+            tagChanged = true
+
+            console.log('Set new tag_id:', tag_id)
+
+
+        } else {
+            tag_id = tag
+            const checkTag = await db.query(`
+                SELECT * FROM user_places_tags
+                WHERE entry_id = $1
+            `, [entry_id])
+            
+            console.log('Check tag ------',checkTag)
+
+            if(checkTag.rows[0].tag_id !== tag_id) {
+                tagChanged = true
+                tag_entry_id = checkTag.rows[0].id
+            }
+        }
+
+        // Update a specific place
+        const placeUpdateResults = await db.query(`
+            UPDATE users_places 
+            SET
+                place_name = $1,
+                google_url = $2,
+                address = $3,
+                rating = $4,
+                review = $5
+            WHERE entry_id = $6
+            RETURNING entry_id, user_id, place_name, place_id, address, google_url, date_added, rating, review; 
+        `, [name, google_url, address, rating, review_text, entry_id]);
+
+        let updated_entry_id = placeUpdateResults.rows[0].entry_id
+
+        if(tagChanged) {
+            console.log('Changing tag', tag_id)
+            const placeUpdateTagResults = await db.query(`
+                UPDATE user_places_tags
+                SET
+                    tag_id = $1
+                WHERE entry_id = $2
+                RETURNING id, entry_id, tag_id;
+            `, [ tag_id, updated_entry_id])
+            console.log(placeUpdateTagResults)
+
+            res.status(200).json({
+                place: placeUpdateResults.rows[0],
+                tag: placeUpdateTagResults.rows[0]
+            })
+        } else {
+            res.status(200).json({
+                place: placeUpdateResults.rows[0],
+                tag: false
+            })
+        }
+    } catch (e) {
+        console.log(e)
+        res.status(400).json({
+            status: 400,
+            message: 'An error occurred, try again.'
+        })
+   }
+})
+
+router.get('/', VerifyToken, async (req, res) => { 
     
-    // Store the rest of the information in the places tab
-    // Store info in the user_places table
-    // Store the tag info in the user_places_tags table
+    const {rows} = await db.query('SELECT * FROM users_places;')
+    res.status(200).json(rows)
+
 
 })
 
-// // const options = [
-//     { value: 'chocolate', label: 'Chocolate' },
-//     { value: 'strawberry', label: 'Strawberry' },
-//     { value: 'vanilla', label: 'Vanilla' }
+router.get('/myplaces', VerifyToken, async (req, res) => { 
+    let current_user_id = req.user_id
+
+    try {
+        const {rows} = await db.query(`
+            SELECT 
+                up.*,
+                pt.tag_id,
+                tags.tag_name
+            FROM users_places as up
+            LEFT JOIN user_places_tags as pt
+                on up.entry_id = pt.entry_id
+            LEFT JOIN tags
+                on pt.tag_id = tags.tag_id
+            WHERE up.user_id = $1;
+        `, [current_user_id])
+
+        res.status(200).json(rows)
+    } catch (e) {
+        console.log(e)
+        res.status(400).json({
+            status: 400,
+            message: 'An error occurred, try again.'
+        })
+    }
+})
+
+router.get('/friends', VerifyToken, async (req, res) => { 
+    let current_user_id = req.user_id
+
+    // Get all places confirmed friends have recorded
+    try {
+        const {rows} = await db.query(`
+            SELECT
+                up.*,
+                tags.tag_id,
+                tags.tag_name,
+                users.first_name,
+                users.last_name
+            FROM users_places as up
+            LEFT OUTER JOIN 
+                (SELECT * FROM users_friends WHERE user_a = $1) as friends
+                on up.user_id = friends.user_b
+            LEFT JOIN users
+                on up.user_id = users.user_id
+            LEFT JOIN user_places_tags as upt
+                on up.entry_id = upt.entry_id
+            LEFT JOIN tags
+                on upt.tag_id = tags.tag_id
+            WHERE friends.status = 'confirmed';
+        `,[current_user_id])
+    
+        res.status(200).json(rows)
+    
+    } catch (e) {
+        console.log(e)
+        res.status(400).json({
+            status: 400,
+            message: 'An error occurred, try again.'
+        })
+    }
+
+
+})
+
+router.get('/:id', VerifyToken, async (req, res) => { 
+    let current_user_id = req.user_id
+    const {rows} = await db.query(`
+        SELECT
+            up.*,
+            tags.tag_id,
+            tags.tag_name,
+            users.first_name,
+            users.last_name
+        FROM users_places as up
+        LEFT OUTER JOIN 
+            (SELECT * FROM users_friends WHERE user_a = $1) as friends
+            on up.user_id = friends.user_b
+        LEFT JOIN users
+            on up.user_id = users.user_id
+        LEFT JOIN user_places_tags as upt
+            on up.entry_id = upt.entry_id
+        LEFT JOIN tags
+            on upt.tag_id = tags.tag_id
+        WHERE 
+            (friends.status = 'confirmed' OR up.user_id = $1)
+            AND place_id=$2;
+    `, [current_user_id, req.params.id])
+
+    res.status(200).json(rows)
+
+})
+
+// router.get('/:id', VerifyToken, async (req, res) => { 
+    
+//     const {rows} = await db.query(`
+//         SELECT * FROM users_places
+//         WHERE entry_id = $1;
+//     `, [req.params.id])
+
+//     res.status(200).json(rows)
+
+// })
