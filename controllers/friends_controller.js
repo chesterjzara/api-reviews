@@ -53,12 +53,21 @@ router.post('/request/:id', VerifyToken, async (req, res) => {
 
 router.get('/request/sent', VerifyToken, async (req, res) => {
     let friendRequestor = req.user_id
+    console.log('Sent requests for user:', friendRequestor)
     try {
         const { rows } = await db.query(`
-            SELECT * FROM users_friends
-            WHERE (user_a = $1 AND status LIKE 'pending');
-        `, [friendRequestor])
+            SELECT 
+                users.user_id,
+                users.first_name,
+                users.last_name,
+                friends.status
+            FROM users_friends as friends
+            LEFT JOIN users
+                ON friends.user_b = users.user_id
+            WHERE (friends.user_a = $1 AND friends.status LIKE $2);
+        `, [friendRequestor, 'pending'])
         
+        console.log('requests:', rows)
         res.status(200).json( rows )
         
     } catch (e) {
@@ -74,8 +83,15 @@ router.get('/request/pending', VerifyToken, async (req, res) => {
     let friendTarget = req.user_id
     try {
         const { rows } = await db.query(`
-            SELECT * FROM users_friends
-            WHERE (user_b = $1 AND status LIKE $2);
+            SELECT 
+                users.user_id,
+                users.first_name,
+                users.last_name,
+                friends.status
+            FROM users_friends as friends
+            LEFT JOIN users
+	            ON friends.user_a = users.user_id
+            WHERE (friends.user_b = $1 AND friends.status LIKE $2);
         `, [friendTarget, 'pending'])
         
         res.status(200).json( rows )
@@ -130,6 +146,7 @@ router.delete('/delete/:id', VerifyToken, async (req, res) => {
     let current_user_id = req.user_id
     let deleteUser = req.params.id
 
+    console.log(current_user_id, deleteUser)
     const { rowCount } = await db.query(`
         DELETE FROM users_friends
         WHERE 
