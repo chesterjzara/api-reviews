@@ -33,8 +33,17 @@ app.use(morgan('tiny'));
 //     next();
 // });
 
+let whitelist = ['https://lit-spire-34692.herokuapp.com', 'http://localhost:3006']
+
 let corsOptions = {
-    origin: 'http://localhost:3006',
+    // origin: 'http://localhost:3006',
+    origin: function(origin, callback) {
+      if(whitelist.indexOf(origin) !== -1) {
+        callback(null, true)
+      } else {
+        callback(new Error('Not allowed by CORS'))
+      }
+    },
     optionsSuccessStatus: 200, // some legacy browsers (IE11, various SmartTVs) choke on 204
     credentials: true
   }
