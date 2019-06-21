@@ -85,6 +85,8 @@ router.put('/update/', VerifyToken, async (req, res) => {
     let current_user_id = req.user_id
     const {entry_id, place_id, address, name, google_url, tag, new_tag, review_text, rating } = req.body
 
+    console.log(req.body)
+
    try {
         // Get correct tag ID
         let tag_id
@@ -162,6 +164,28 @@ router.put('/update/', VerifyToken, async (req, res) => {
    }
 })
 
+router.delete('/delete/:entry_id', VerifyToken, async (req, res) => { 
+    let current_user_id = req.user_id
+    let delete_entry_id = req.params.entry_id
+
+    console.log(current_user_id, delete_entry_id)
+
+    try{
+        const {rows} = await db.query(`
+            DELETE FROM users_places
+            WHERE entry_id = $1;
+        `, [delete_entry_id])
+    
+        res.status(200).json( {test: 'success', rows: rows})
+    } catch (e) {
+        console.log(e)
+        res.status(400).json({
+            status: 400,
+            message: 'An error occurred deleting the review, try again.'
+        })
+    }
+})
+
 router.get('/', VerifyToken, async (req, res) => { 
     
     const {rows} = await db.query('SELECT * FROM users_places;')
@@ -186,6 +210,33 @@ router.get('/myplaces', VerifyToken, async (req, res) => {
                 on pt.tag_id = tags.tag_id
             WHERE up.user_id = $1;
         `, [current_user_id])
+
+        res.status(200).json(rows)
+    } catch (e) {
+        console.log(e)
+        res.status(400).json({
+            status: 400,
+            message: 'An error occurred, try again.'
+        })
+    }
+})
+
+router.get('/user/:user_id', VerifyToken, async (req, res) => { 
+    let user_id = req.params.user_id
+
+    try {
+        const {rows} = await db.query(`
+            SELECT 
+                up.*,
+                pt.tag_id,
+                tags.tag_name
+            FROM users_places as up
+            LEFT JOIN user_places_tags as pt
+                on up.entry_id = pt.entry_id
+            LEFT JOIN tags
+                on pt.tag_id = tags.tag_id
+            WHERE up.user_id = $1;
+        `, [user_id])
 
         res.status(200).json(rows)
     } catch (e) {
@@ -228,11 +279,55 @@ router.get('/friends', VerifyToken, async (req, res) => {
         console.log(e)
         res.status(400).json({
             status: 400,
-            message: 'An error occurred, try again.'
+            message: "An error occurred finding friends places, try again."
         })
     }
 
 
+})
+
+router.post('/search', VerifyToken, async (req, res) => { 
+    let current_user_id = req.user_id
+    let { search_string } = req.body
+    
+    try {
+        const { rows } = await db.query(`
+            SELECT p_search.*
+            FROM (SELECT
+                    up.*,
+                    tags.tag_id,
+                    tags.tag_name,
+                    users.first_name,
+                    users.last_name,
+                    to_tsvector(up.place_name) ||
+                    to_tsvector(up.review) ||
+                    to_tsvector(up.address) ||
+                    to_tsvector(tags.tag_name) as document
+                FROM users_places as up
+                LEFT OUTER JOIN 
+                    (SELECT * FROM users_friends WHERE user_a = $1) as friends
+                    ON up.user_id = friends.user_b
+                LEFT JOIN users 
+                    ON users.user_id = up.user_id
+                LEFT JOIN user_places_tags as upt 
+                    ON upt.entry_id = up.entry_id
+                LEFT JOIN tags 
+                    ON tags.tag_id = upt.tag_id
+                WHERE 
+                    (friends.status = 'confirmed' OR up.user_id = $1)
+            ) p_search
+            WHERE p_search.document @@ to_tsquery($2)
+        `, [current_user_id, search_string])
+
+        console.log(rows)
+        res.status(200).json(rows)
+    } catch (e) {
+        console.log(e)
+        res.status(400).json({
+            status: 400,
+            message: 'An error occurred in the search, try again.'
+        })
+    }
 })
 
 router.get('/:id', VerifyToken, async (req, res) => { 
