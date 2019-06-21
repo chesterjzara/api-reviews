@@ -193,6 +193,40 @@ router.post('/search', VerifyToken, async (req, res) => {
     }
 })
 
+router.post('/search/fulltext', VerifyToken, async (req, res) => { 
+    let {searchTerm} = req.body
+    let current_user_id  = req.user_id
+    // searchTerm = searchTerm.toLowerCase()
+    try {
+        console.log('searchTerm:', searchTerm, 'currID:',current_user_id)
+        let { rows } = await db.query(`
+            SELECT p_search.*
+            FROM( SELECT
+                    users.user_id,
+                    users.first_name,
+                    users.last_name,
+                    friends.user_a as friend_id,
+                    friends.status,
+                    to_tsvector(users.first_name) ||
+                    to_tsvector(users.last_name) as document
+                FROM users 
+                LEFT OUTER JOIN 
+                    (SELECT * FROM users_friends WHERE user_a = $2) as friends
+                    on friends.user_b = users.user_id
+                WHERE users.user_id != $2) p_search
+            WHERE p_search.document @@ to_tsquery($1)
+        `, [searchTerm, current_user_id])
+
+        res.status(200).json(rows);
+    } catch (e) {
+        console.log(e)
+        res.status(400).json({
+            status: 400,
+            message: 'An error occurred in search, try again.'
+        })
+    }
+})
+
 router.post('/search/new', VerifyToken, async (req, res) => { 
     let {searchTerm} = req.body
     let current_user_id  = req.user_id

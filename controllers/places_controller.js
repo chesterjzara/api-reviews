@@ -221,6 +221,33 @@ router.get('/myplaces', VerifyToken, async (req, res) => {
     }
 })
 
+router.get('/user/:user_id', VerifyToken, async (req, res) => { 
+    let user_id = req.params.user_id
+
+    try {
+        const {rows} = await db.query(`
+            SELECT 
+                up.*,
+                pt.tag_id,
+                tags.tag_name
+            FROM users_places as up
+            LEFT JOIN user_places_tags as pt
+                on up.entry_id = pt.entry_id
+            LEFT JOIN tags
+                on pt.tag_id = tags.tag_id
+            WHERE up.user_id = $1;
+        `, [user_id])
+
+        res.status(200).json(rows)
+    } catch (e) {
+        console.log(e)
+        res.status(400).json({
+            status: 400,
+            message: 'An error occurred, try again.'
+        })
+    }
+})
+
 router.get('/friends', VerifyToken, async (req, res) => { 
     let current_user_id = req.user_id
 
