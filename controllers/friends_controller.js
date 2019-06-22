@@ -8,6 +8,10 @@ let VerifyToken = require('./auth_controller.js');
 
 module.exports = router;
 
+function capitalizeFirstLetter(string) {
+    return string.charAt(0).toUpperCase() + string.slice(1);
+}
+
 router.post('/request/:id', VerifyToken, async (req, res) => { 
     let friendTarget = req.params.id
     let friendRequestor = req.user_id
@@ -259,23 +263,40 @@ router.post('/search/new', VerifyToken, async (req, res) => {
     }
 })
 
+const queryUsersFriends = `
+    SELECT
+        a.user_id as user_id,
+        b.user_id as friend_id,
+        b.first_name,
+        b.last_name,
+        friends.status
+    FROM users_friends as friends
+    LEFT JOIN users as a
+        ON friends.user_a = a.user_id
+    LEFT JOIN users as b
+        ON friends.user_b = b.user_id
+    WHERE user_a = $1;
+`
+
+router.get('/suggest/params', VerifyToken, async (req,res) => { 
+    let current_user_id = req.user_id
+    const friendsResults = await db.query(queryUsersFriends, [current_user_id])
+
+    let friendsOptions = friendsResults.rows.map( (item) => {
+        return ({
+            value: item.friend_id,
+            label: `${capitalizeFirstLetter(item.first_name)} ${capitalizeFirstLetter(item.last_name)}`
+        })
+    })
+
+    res.status(200).json( friendsOptions )
+})
+
+
 router.get('/', VerifyToken, async (req, res) => {
     console.log('Return all current friends for this user')
     let current_user_id = req.user_id
-    const { rows } = await db.query(`
-        SELECT
-            a.user_id as user_id,
-            b.user_id as friend_id,
-            b.first_name,
-            b.last_name,
-            friends.status
-        FROM users_friends as friends
-        LEFT JOIN users as a
-            ON friends.user_a = a.user_id
-        LEFT JOIN users as b
-            ON friends.user_b = b.user_id
-        WHERE user_a = $1;
-    `, [current_user_id])
+    const { rows } = await db.query(queryUsersFriends, [current_user_id])
 
     res.status(200).json( rows )
 })

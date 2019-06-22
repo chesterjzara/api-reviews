@@ -330,6 +330,66 @@ router.post('/search', VerifyToken, async (req, res) => {
     }
 })
 
+router.post('/suggestion/tags', VerifyToken, async (req, res) => { 
+    let inFriendArray = req.body.inFriendArray
+    inFriendArray.push(req.user_id)
+    let friendParamString = inFriendArray.join(', ')
+    console.log(inFriendArray)
+    console.log(friendParamString)
+
+    tagQuery = `
+        SELECT 
+            DISTINCT tags.tag_name,
+            tags.tag_id
+        FROM users_places as up
+        LEFT OUTER JOIN user_places_tags as upt
+            on up.entry_id = upt.entry_id
+        LEFT JOIN tags
+            on upt.tag_id = tags.tag_id
+        WHERE user_id IN (${friendParamString})
+    `
+    const {rows} = await db.query(tagQuery)
+
+    let tagOptions = rows.map( (item) => {
+        return ({
+            value: item.tag_id,
+            label: capitalizeFirstLetter(item.tag_name)
+        })
+    })
+
+    res.status(200).json(tagOptions)
+})
+
+router.post('/suggestion', VerifyToken, async (req, res) => { 
+    let {inFriendArray} = req.body
+    inFriendArray.push(req.user_id)
+    
+    let friendString = inFriendArray.join(', ')
+    let tagString = req.body.inTagArray.join(', ')
+
+    suggestionQuery = `
+        SELECT 
+            *
+        FROM users_places as up
+        LEFT OUTER JOIN user_places_tags as upt
+            on up.entry_id = upt.entry_id
+        LEFT JOIN tags
+            on upt.tag_id = tags.tag_id
+        LEFT JOIN users
+            ON users.user_id = up.user_id
+        WHERE 
+            up.user_id IN (${friendString}) 
+            ${req.body.inTagArray.length > 0 ?
+               `AND	tags.tag_id IN (${tagString})` : ''
+            }
+        ORDER BY up.place_id ASC, up.rating ASC
+    `
+
+    const {rows} = await db.query(suggestionQuery)
+
+    res.status(200).json(rows)
+})
+
 router.get('/:id', VerifyToken, async (req, res) => { 
     let current_user_id = req.user_id
     const {rows} = await db.query(`
